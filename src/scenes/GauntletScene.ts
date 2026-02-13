@@ -30,14 +30,16 @@ export class GauntletScene extends Phaser.Scene {
         health: MAX_HEALTH,
         score: 0,
         deaths: 0,
-        currentLevel: LEVEL_ORDER[0],
+        // Changed from LEVEL_ORDER[0] to LEVEL_ORDER[1]
+        currentLevel: LEVEL_ORDER[5],
         elapsedMs: 0,
         accessibility,
       };
 
       this.showCard('Initializing Gauntlet', 'Deploy pipeline warming...');
       this.time.delayedCall(900, () => {
-        this.startLevel(0, runState, [], 0);
+        // Changed from startLevel(0, ...) to startLevel(1, ...)
+        this.startLevel(5, runState, [], 0);
       });
       return;
     }

@@ -6,7 +6,7 @@ describe('ScoreSystem', () => {
     const result = calculateLevelScore({
       level: 'burningMonk',
       levelNumber: 1,
-      durationMs: 55_000,
+      durationMs: 15_000,
       damageTaken: 10,
       deathsInLevel: 1,
       success: true,

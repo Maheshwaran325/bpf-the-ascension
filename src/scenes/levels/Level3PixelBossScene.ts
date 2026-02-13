@@ -1,8 +1,14 @@
 import Phaser from 'phaser';
 import { BaseLevelScene } from './BaseLevelScene';
 
+const TARGET_RESOLUTION = 70;
+const RESOLUTION_PER_HIT = 5;
+const PHASE_TWO_AT = 35;
+
 export class Level3PixelBossScene extends BaseLevelScene {
   private pixelBoss!: Phaser.GameObjects.Arc;
+
+  private bossPupil!: Phaser.GameObjects.Arc;
 
   private blocks!: Phaser.Physics.Arcade.Group;
 
@@ -11,6 +17,8 @@ export class Level3PixelBossScene extends BaseLevelScene {
   private phaseTwo = false;
 
   private lastShot = 0;
+
+  private lastCollisionMs = -1000;
 
   constructor() {
     super('Level3PixelBossScene');
@@ -21,10 +29,15 @@ export class Level3PixelBossScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Hit Pixel Eye with 4K Rays until resolution reaches 100%.';
+    return 'Fire SPACE 4K Rays. Dodge pixel blocks to reach 70% resolution.';
   }
 
   protected onLevelStart(): void {
+    this.resolution = 0;
+    this.phaseTwo = false;
+    this.lastShot = 0;
+    this.lastCollisionMs = -1000;
+
     this.cameras.main.setBackgroundColor('#1b1833');
 
     for (let x = 0; x < this.scale.width; x += 22) {
@@ -33,32 +46,43 @@ export class Level3PixelBossScene extends BaseLevelScene {
       }
     }
 
-    this.pixelBoss = this.add.circle(this.scale.width - 180, this.scale.height / 2, 72, 0x9b83ff, 1);
-    this.add.circle(this.scale.width - 180, this.scale.height / 2, 28, 0x0a0622, 1);
+    this.pixelBoss = this.add.circle(this.scale.width - 180, this.scale.height / 2, 72, 0x9b83ff, 1).setDepth(110);
+    this.bossPupil = this.add.circle(this.scale.width - 180, this.scale.height / 2, 28, 0x0a0622, 1).setDepth(111);
 
     this.blocks = this.physics.add.group({ allowGravity: false });
 
-    this.time.addEvent({
-      delay: 760,
-      loop: true,
-      callback: () => this.spawnBlockPattern(),
+    this.physics.add.overlap(this.player, this.blocks, (_player, block) => {
+      const b = block as Phaser.GameObjects.Rectangle;
+      if (!b.active) {
+        return;
+      }
+      b.destroy();
+      const now = this.time.now;
+      if (now - this.lastCollisionMs > 220) {
+        this.lastCollisionMs = now;
+        this.damage(14);
+      }
     });
 
-    this.physics.add.overlap(this.player, this.blocks, (_player, block) => {
-      block.destroy();
-      this.damage(12);
+    this.time.addEvent({
+      delay: 520,
+      loop: true,
+      callback: () => this.spawnBlockWave(),
     });
   }
 
   protected onLevelUpdate(_time: number, _delta: number): void {
     const now = this.time.now;
 
-    if (Phaser.Input.Keyboard.JustDown(this.attackKey) && now - this.lastShot > 190) {
+    if (
+      (Phaser.Input.Keyboard.JustDown(this.actionKey) || Phaser.Input.Keyboard.JustDown(this.attackKey)) &&
+      now - this.lastShot > 190
+    ) {
       this.lastShot = now;
       this.fire4KRay();
     }
 
-    if (!this.phaseTwo && this.resolution >= 50) {
+    if (!this.phaseTwo && this.resolution >= PHASE_TWO_AT) {
       this.phaseTwo = true;
       this.add
         .text(this.scale.width / 2, 120, 'Phase Shift: Diagonal Burst', {
@@ -71,51 +95,73 @@ export class Level3PixelBossScene extends BaseLevelScene {
         .setScrollFactor(0);
     }
 
-    for (const block of this.blocks.getChildren() as Phaser.GameObjects.Rectangle[]) {
+    // Clean up out-of-bounds blocks
+    for (const block of [...this.blocks.getChildren()] as Phaser.GameObjects.Rectangle[]) {
+      if (!block.active) {
+        continue;
+      }
+
       if (
-        block.x < -60 ||
-        block.x > this.scale.width + 60 ||
-        block.y < -60 ||
-        block.y > this.scale.height + 60
+        block.x < -80 ||
+        block.x > this.scale.width + 80 ||
+        block.y < -80 ||
+        block.y > this.scale.height + 80
       ) {
         block.destroy();
       }
     }
 
-    if (this.resolution >= 100) {
+    if (this.resolution >= TARGET_RESOLUTION) {
       this.completeLevel();
       return;
     }
 
-    this.updateHud(`Resolution ${(this.resolution).toFixed(0)}% / 100% | J = 4K Ray`);
+    this.updateHud(
+      `Resolution ${this.resolution.toFixed(0)}% / ${TARGET_RESOLUTION}% | SPACE = 4K Ray | Obstacles ${this.blocks.getChildren().length}`,
+    );
   }
 
-  private spawnBlockPattern(): void {
-    const patterns = this.phaseTwo ? 3 : 2;
+  private spawnBlockWave(): void {
+    const count = this.phaseTwo ? 5 : 3;
 
-    for (let i = 0; i < patterns; i += 1) {
-      const y = this.phaseTwo
-        ? Phaser.Math.Between(90, this.scale.height - 90)
-        : this.pixelBoss.y + Phaser.Math.Between(-80, 80);
+    for (let i = 0; i < count; i += 1) {
+      const spread = this.phaseTwo ? 60 : 84;
+      const offset = (i - (count - 1) / 2) * spread;
+      const y = Phaser.Math.Clamp(this.player.y + offset + Phaser.Math.Between(-16, 16), 90, this.scale.height - 90);
+      this.spawnProjectile(this.pixelBoss.x - 70, y, this.phaseTwo ? 30 : 26);
+    }
 
-      const block = this.add.rectangle(this.pixelBoss.x - 60, y, 24, 24, 0x8f87ca, 0.95);
-      this.physics.add.existing(block);
-      const body = block.body as Phaser.Physics.Arcade.Body;
-      body.setAllowGravity(false);
-
-      if (this.phaseTwo) {
-        const vertical = Phaser.Math.Between(-220, 220);
-        body.setVelocity(-Phaser.Math.Between(280, 360), vertical);
-      } else {
-        body.setVelocity(-Phaser.Math.Between(260, 340), Phaser.Math.Between(-60, 60));
-      }
-
-      this.blocks.add(block);
+    if (this.phaseTwo) {
+      this.spawnProjectile(this.pixelBoss.x - 82, 96, 24, Phaser.Math.Between(140, 240));
+      this.spawnProjectile(this.pixelBoss.x - 82, this.scale.height - 96, 24, Phaser.Math.Between(-240, -140));
     }
   }
 
+  private spawnProjectile(spawnX: number, spawnY: number, size: number, velocityY?: number): void {
+    const block = this.add
+      .rectangle(spawnX, spawnY, size, size, this.phaseTwo ? 0xff8acc : 0xb9a2ff, 0.96)
+      .setDepth(120);
+
+    this.physics.add.existing(block);
+    this.blocks.add(block); // Add to group FIRST, before setting velocity
+
+    const body = block.body as Phaser.Physics.Arcade.Body;
+    body.setAllowGravity(false);
+    body.setVelocity(
+      -Phaser.Math.Between(this.phaseTwo ? 360 : 320, this.phaseTwo ? 500 : 430),
+      velocityY ?? Phaser.Math.Between(-90, 90),
+    );
+
+    this.tweens.add({
+      targets: block,
+      angle: this.phaseTwo ? 180 : 90,
+      duration: 600,
+      ease: 'Linear',
+    });
+  }
+
   private fire4KRay(): void {
-    const ray = this.add.rectangle(this.player.x + 60, this.player.y, 110, 6, 0x6fd4ff, 0.95).setOrigin(0, 0.5);
+    const ray = this.add.rectangle(this.player.x + 60, this.player.y, 110, 7, 0x6fd4ff, 0.95).setOrigin(0, 0.5);
     this.tweens.add({
       targets: ray,
       x: this.scale.width,
@@ -129,10 +175,11 @@ export class Level3PixelBossScene extends BaseLevelScene {
       return;
     }
 
-    this.resolution = Math.min(100, this.resolution + 5);
+    this.resolution = Math.min(TARGET_RESOLUTION, this.resolution + RESOLUTION_PER_HIT);
     const red = Phaser.Math.Clamp(155 + this.resolution, 0, 255);
     const green = Phaser.Math.Clamp(130 + this.resolution, 0, 255);
     this.pixelBoss.setFillStyle(Phaser.Display.Color.GetColor(red, green, 255));
+    this.bossPupil.setScale(1 + this.resolution / 500);
     this.runState.score += 20;
   }
 }

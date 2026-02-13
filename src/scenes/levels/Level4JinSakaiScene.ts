@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { isParrySuccess, parryDeltaMs } from '../../systems/mechanics';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const TARGET_PARRIES = 25;
-const TELEGRAPH_MS = 450;
-const PARRY_WINDOW_MS = 120;
+const TARGET_PARRIES = 14;
+const TELEGRAPH_MS = 420;
+const PARRY_WINDOW_MS = 110;
 
 export class Level4JinSakaiScene extends BaseLevelScene {
   private parries = 0;
@@ -24,10 +24,14 @@ export class Level4JinSakaiScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'No shooting. Spacebar parry 25 strikes within 120ms.';
+    return 'No shooting. Spacebar parry 14 strikes within 110ms.';
   }
 
   protected onLevelStart(): void {
+    this.parries = 0;
+    this.currentNinja = undefined;
+    this.strikeAtMs = -1;
+
     this.cameras.main.setBackgroundColor('#111111');
 
     for (let i = 0; i < 34; i += 1) {
@@ -50,7 +54,7 @@ export class Level4JinSakaiScene extends BaseLevelScene {
       .setOrigin(0.5);
 
     this.time.addEvent({
-      delay: 900,
+      delay: 760,
       loop: true,
       callback: () => {
         if (!this.currentNinja) {

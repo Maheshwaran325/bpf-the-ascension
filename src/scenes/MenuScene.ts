@@ -89,7 +89,7 @@ export class MenuScene extends Phaser.Scene {
     );
 
     this.add
-      .text(this.scale.width / 2, this.scale.height - 140, 'Controls: WASD Move, J Attack, SPACE Action/Parry', {
+      .text(this.scale.width / 2, this.scale.height - 140, 'Controls: WASD Move, SPACE Primary, J Optional Attack', {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#b2d8ff',

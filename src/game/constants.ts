@@ -35,12 +35,12 @@ export const LEVEL_LABELS: Record<LevelId, string> = {
 };
 
 export const LEVEL_TARGET_MS: Record<LevelId, number> = {
-  burningMonk: 60_000,
-  snap: 100_000,
-  pixelBoss: 90_000,
-  jinSakai: 90_000,
-  ronin45: 110_000,
-  godmode: 180_000,
+  burningMonk: 20_000,
+  snap: 45_000,
+  pixelBoss: 50_000,
+  jinSakai: 40_000,
+  ronin45: 55_000,
+  godmode: 90_000,
 };
 
 export const ACCESSIBILITY_STORAGE_KEY = 'bpf_ascension_accessibility_v1';

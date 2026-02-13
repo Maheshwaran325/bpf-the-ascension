@@ -170,7 +170,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.instructionBar = this.add
       .rectangle(this.scale.width / 2, this.scale.height - 26, this.scale.width - 120, 44, 0x000000, 0.35)
       .setDepth(90);
-    this.controlHintText = this.add.text(this.scale.width / 2, this.scale.height - 28, 'Move: WASD / Arrows   Attack: J   Action/Parry: SPACE', {
+    this.controlHintText = this.add.text(this.scale.width / 2, this.scale.height - 28, 'Move: WASD / Arrows   Primary: SPACE   Alt Attack: J', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#9cb9d2',

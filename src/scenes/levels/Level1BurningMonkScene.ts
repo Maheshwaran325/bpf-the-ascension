@@ -3,10 +3,10 @@ import { updateTemperature } from '../../systems/mechanics';
 import { LevelSceneData } from '../../types/game';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const GOAL_MS = 30_000;
-const FIRE_SPAWN_MS = 360;
-const COOLANT_SPAWN_MS = 5_000;
-const HEAT_SURGE_MS = 5_000;
+const GOAL_MS = 20_000;
+const FIRE_SPAWN_MS = 300;
+const COOLANT_SPAWN_MS = 6_000;
+const HEAT_SURGE_MS = 4_000;
 
 export class Level1BurningMonkScene extends BaseLevelScene {
   private temperature = 25;
@@ -34,7 +34,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Survive 30s. Lava below. Collect coffee coolant.';
+    return 'Survive 20s. Lava below. Collect coffee coolant.';
   }
 
   protected onLevelStart(): void {
@@ -43,7 +43,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
     this.add.rectangle(this.scale.width / 2, this.scale.height - 18, this.scale.width, 36, 0xff5e1f, 0.95);
     this.add.rectangle(this.scale.width / 2, this.scale.height - 42, this.scale.width, 24, 0xcc2a10, 0.75);
 
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 7; i += 1) {
       this.spawnFireBug();
     }
 
@@ -63,7 +63,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
       delay: HEAT_SURGE_MS,
       loop: true,
       callback: () => {
-        this.temperature = updateTemperature(this.temperature, 0, 0, 0) + 8;
+        this.temperature = updateTemperature(this.temperature, 0, 0, 0) + 10;
         if (!this.runState.accessibility.reducedFlash) {
           this.cameras.main.flash(90, 255, 130, 70, false);
         }
