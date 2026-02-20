@@ -1,13 +1,23 @@
 import Phaser from 'phaser';
+import { AudioSystem } from '../systems/AudioSystem';
 import { loadLeaderboard } from '../storage/leaderboard';
+import { loadAudioSettings } from '../storage/settings';
 
 export class LeaderboardScene extends Phaser.Scene {
+  private audio?: AudioSystem;
+
   constructor() {
     super('LeaderboardScene');
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#0c1320');
+    this.audio = new AudioSystem(this, loadAudioSettings());
+    this.audio.playMusic('music_menu_loop', true);
+
+    this.add
+      .image(this.scale.width / 2, this.scale.height / 2, 'bg_menu')
+      .setDisplaySize(this.scale.width, this.scale.height)
+      .setAlpha(0.95);
 
     this.add
       .text(this.scale.width / 2, 88, 'LOCAL LEADERBOARD', {

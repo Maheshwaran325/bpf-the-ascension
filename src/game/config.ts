@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
 import { MenuScene } from '../scenes/MenuScene';
+import { SettingsScene } from '../scenes/SettingsScene';
 import { GauntletScene } from '../scenes/GauntletScene';
 import { ResultScene } from '../scenes/ResultScene';
 import { LeaderboardScene } from '../scenes/LeaderboardScene';
@@ -30,6 +31,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   scene: [
     BootScene,
     MenuScene,
+    SettingsScene,
     GauntletScene,
     ResultScene,
     LeaderboardScene,

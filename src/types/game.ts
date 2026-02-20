@@ -5,6 +5,13 @@ export interface AccessibilitySettings {
   reducedShake: boolean;
 }
 
+export interface AudioSettings {
+  master: number;
+  music: number;
+  sfx: number;
+  muted: boolean;
+}
+
 export interface RunState {
   health: number;
   score: number;
@@ -12,6 +19,7 @@ export interface RunState {
   currentLevel: LevelId;
   elapsedMs: number;
   accessibility: AccessibilitySettings;
+  audio: AudioSettings;
 }
 
 export interface LevelResult {
@@ -65,6 +73,7 @@ export interface FailedLevelPayload {
 export interface NewRunPayload {
   type: 'newRun';
   accessibility?: AccessibilitySettings;
+  audio?: AudioSettings;
 }
 
 export type GauntletSceneData =

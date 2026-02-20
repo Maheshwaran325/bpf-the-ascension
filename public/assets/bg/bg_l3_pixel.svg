@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#1b1833"/>
+  <g opacity="0.7">
+    <rect x="0" y="0" width="32" height="32" fill="#312b61"/>
+    <rect x="32" y="0" width="32" height="32" fill="#282252"/>
+    <rect x="64" y="0" width="32" height="32" fill="#312b61"/>
+    <rect x="96" y="0" width="32" height="32" fill="#282252"/>
+    <rect x="128" y="0" width="32" height="32" fill="#312b61"/>
+    <rect x="160" y="0" width="32" height="32" fill="#282252"/>
+    <rect x="192" y="0" width="32" height="32" fill="#312b61"/>
+    <rect x="224" y="0" width="32" height="32" fill="#282252"/>
+    <rect x="256" y="0" width="32" height="32" fill="#312b61"/>
+    <rect x="288" y="0" width="32" height="32" fill="#282252"/>
+  </g>
+  <g opacity="0.3" stroke="#4e46a2" stroke-width="2">
+    <path d="M0 32 H1280M0 64 H1280M0 96 H1280M0 128 H1280M0 160 H1280M0 192 H1280M0 224 H1280M0 256 H1280M0 288 H1280M0 320 H1280M0 352 H1280M0 384 H1280M0 416 H1280M0 448 H1280M0 480 H1280M0 512 H1280M0 544 H1280M0 576 H1280M0 608 H1280M0 640 H1280M0 672 H1280"/>
+    <path d="M32 0 V720M64 0 V720M96 0 V720M128 0 V720M160 0 V720M192 0 V720M224 0 V720M256 0 V720M288 0 V720M320 0 V720M352 0 V720M384 0 V720M416 0 V720M448 0 V720M480 0 V720M512 0 V720M544 0 V720M576 0 V720M608 0 V720M640 0 V720M672 0 V720M704 0 V720M736 0 V720M768 0 V720M800 0 V720M832 0 V720M864 0 V720M896 0 V720M928 0 V720M960 0 V720M992 0 V720M1024 0 V720M1056 0 V720M1088 0 V720M1120 0 V720M1152 0 V720M1184 0 V720M1216 0 V720M1248 0 V720"/>
+  </g>
+</svg>

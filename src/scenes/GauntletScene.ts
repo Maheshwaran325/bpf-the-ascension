@@ -1,14 +1,17 @@
 import Phaser from 'phaser';
 import {
   DEFAULT_ACCESSIBILITY,
+  DEFAULT_AUDIO,
+  GAME_FONT,
   LEVEL_LABELS,
   LEVEL_ORDER,
   LEVEL_SCENE_KEY,
   MAX_HEALTH,
 } from '../game/constants';
-import { loadAccessibilitySettings } from '../storage/settings';
+import { loadAccessibilitySettings, loadAudioSettings } from '../storage/settings';
 import {
   AccessibilitySettings,
+  AudioSettings,
   CompletedLevelPayload,
   FailedLevelPayload,
   GauntletSceneData,
@@ -17,12 +20,23 @@ import {
 } from '../types/game';
 
 export class GauntletScene extends Phaser.Scene {
+  private static readonly INTRO_CARD_MS = 1_200;
+
+  private static readonly CLEAR_CARD_MS = 1_150;
+
+  private static readonly ENTER_CARD_AFTER_CLEAR_MS = 2_300;
+
+  private cardTitle?: Phaser.GameObjects.Text;
+
+  private cardSubtitle?: Phaser.GameObjects.Text;
+
   constructor() {
     super('GauntletScene');
   }
 
   create(data: GauntletSceneData = { type: 'newRun' }): void {
     this.cameras.main.setBackgroundColor('#090d15');
+    const startLevelIndex = 0;
 
     if (data.type === 'newRun') {
       const accessibility = this.resolveAccessibility(data.accessibility);
@@ -30,16 +44,15 @@ export class GauntletScene extends Phaser.Scene {
         health: MAX_HEALTH,
         score: 0,
         deaths: 0,
-        // Changed from LEVEL_ORDER[0] to LEVEL_ORDER[1]
-        currentLevel: LEVEL_ORDER[5],
+        currentLevel: LEVEL_ORDER[startLevelIndex],
         elapsedMs: 0,
         accessibility,
+        audio: this.resolveAudio(data.audio),
       };
 
-      this.showCard('Initializing Gauntlet', 'Deploy pipeline warming...');
-      this.time.delayedCall(900, () => {
-        // Changed from startLevel(0, ...) to startLevel(1, ...)
-        this.startLevel(5, runState, [], 0);
+      this.showCard(`Entering ${LEVEL_LABELS[LEVEL_ORDER[startLevelIndex]]}`, 'Deploy pipeline warming...');
+      this.time.delayedCall(GauntletScene.INTRO_CARD_MS, () => {
+        this.startLevel(startLevelIndex, runState, [], 0);
       });
       return;
     }
@@ -64,11 +77,14 @@ export class GauntletScene extends Phaser.Scene {
       return;
     }
 
-    this.showCard(
-      `Cleared ${LEVEL_LABELS[LEVEL_ORDER[data.levelIndex]]}`,
-      `+${data.result.scoreDelta} score  |  Total ${Math.floor(data.runState.score)}`,
-    );
-    this.time.delayedCall(1400, () => {
+    const currentLevelLabel = LEVEL_LABELS[LEVEL_ORDER[data.levelIndex]];
+    const nextLevelLabel = LEVEL_LABELS[LEVEL_ORDER[nextLevelIndex]];
+
+    this.showCard(`Cleared ${currentLevelLabel}`, `+${data.result.scoreDelta}  |  Total ${Math.floor(data.runState.score)}`);
+    this.time.delayedCall(GauntletScene.CLEAR_CARD_MS, () => {
+      this.showCard(`Entering ${nextLevelLabel}`, 'Prepare for next protocol');
+    });
+    this.time.delayedCall(GauntletScene.ENTER_CARD_AFTER_CLEAR_MS, () => {
       this.startLevel(nextLevelIndex, data.runState, mergedResults, 0);
     });
   }
@@ -90,21 +106,26 @@ export class GauntletScene extends Phaser.Scene {
   }
 
   private showCard(title: string, subtitle: string): void {
-    this.add
+    this.cardTitle?.destroy();
+    this.cardSubtitle?.destroy();
+
+    this.cardTitle = this.add
       .text(this.scale.width / 2, this.scale.height / 2 - 24, title, {
-        fontFamily: 'monospace',
-        fontSize: '48px',
+        fontFamily: GAME_FONT,
+        fontSize: '64px',
         color: '#ffe08d',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setShadow(4, 4, '#000000', 0, true, true);
 
-    this.add
+    this.cardSubtitle = this.add
       .text(this.scale.width / 2, this.scale.height / 2 + 34, subtitle, {
-        fontFamily: 'monospace',
-        fontSize: '22px',
+        fontFamily: GAME_FONT,
+        fontSize: '32px',
         color: '#c8deff',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setShadow(2, 2, '#000000', 0, true, true);
   }
 
   private resolveAccessibility(settings?: AccessibilitySettings): AccessibilitySettings {
@@ -116,6 +137,18 @@ export class GauntletScene extends Phaser.Scene {
       return loadAccessibilitySettings();
     } catch {
       return { ...DEFAULT_ACCESSIBILITY };
+    }
+  }
+
+  private resolveAudio(settings?: AudioSettings): AudioSettings {
+    if (settings) {
+      return settings;
+    }
+
+    try {
+      return loadAudioSettings();
+    } catch {
+      return { ...DEFAULT_AUDIO };
     }
   }
 }

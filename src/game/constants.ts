@@ -1,8 +1,17 @@
-import { AccessibilitySettings, LevelId } from '../types/game';
+import { AccessibilitySettings, AudioSettings, LevelId } from '../types/game';
+
+export const GAME_FONT = 'VT323, monospace';
 
 export const DEFAULT_ACCESSIBILITY: AccessibilitySettings = {
   reducedFlash: false,
   reducedShake: false,
+};
+
+export const DEFAULT_AUDIO: AudioSettings = {
+  master: 1,
+  music: 0.8,
+  sfx: 0.9,
+  muted: false,
 };
 
 export const MAX_HEALTH = 100;
@@ -44,3 +53,4 @@ export const LEVEL_TARGET_MS: Record<LevelId, number> = {
 };
 
 export const ACCESSIBILITY_STORAGE_KEY = 'bpf_ascension_accessibility_v1';
+export const AUDIO_STORAGE_KEY = 'bpf_ascension_audio_v1';

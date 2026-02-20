@@ -40,6 +40,9 @@ test('restarts current level when health is depleted', async ({ page }) => {
   await page.evaluate(() => {
     (window as any).__BPF_DEBUG__?.forceCurrentLevelFail();
   });
+  await page.waitForFunction(() => (window as any).__BPF_DEBUG__?.getSnapshot()?.health === 0);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => (window as any).__BPF_DEBUG__?.getSnapshot()?.health === 100);
 
   await waitForActiveScene(page, 'Level1BurningMonkScene');
   const snapshot = await page.evaluate<Snapshot | null>(() => (window as any).__BPF_DEBUG__?.getSnapshot() ?? null);

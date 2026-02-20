@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
+import { COMMON_SFX, LEVEL_THEME_ASSETS, UI_ASSETS } from '../../game/assets';
 import { MAX_HEALTH } from '../../game/constants';
+import { AudioSystem } from '../../systems/AudioSystem';
 import { applyScore, calculateLevelScore } from '../../systems/ScoreSystem';
 import { LevelResult, LevelSceneData, MutationEffects, RunState } from '../../types/game';
 
@@ -14,7 +16,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
   protected previousResults: LevelResult[] = [];
 
-  protected player!: Phaser.GameObjects.Rectangle;
+  protected player!: Phaser.Physics.Arcade.Sprite;
 
   protected wasd!: {
     up: Phaser.Input.Keyboard.Key;
@@ -32,8 +34,6 @@ export abstract class BaseLevelScene extends Phaser.Scene {
   protected healthText!: Phaser.GameObjects.Text;
 
   protected scoreText!: Phaser.GameObjects.Text;
-
-  protected instructionBar!: Phaser.GameObjects.Rectangle;
 
   protected instructionText!: Phaser.GameObjects.Text;
 
@@ -61,11 +61,11 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     activeLabel: 'None',
   };
 
+  protected audio?: AudioSystem;
+
   private darknessOverlay?: Phaser.GameObjects.Rectangle;
 
   private countdownText?: Phaser.GameObjects.Text;
-
-  private countdownStartedAt = 0;
 
   private restartPromptVisible = false;
 
@@ -73,19 +73,23 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
   private restartOverlay?: Phaser.GameObjects.Rectangle;
 
+  private restartPanel?: Phaser.GameObjects.Image;
+
   private restartTitle?: Phaser.GameObjects.Text;
 
   private restartSubtitle?: Phaser.GameObjects.Text;
 
-  private restartButton?: Phaser.GameObjects.Rectangle;
+  private restartButton?: Phaser.GameObjects.Image;
 
   private restartButtonLabel?: Phaser.GameObjects.Text;
 
-  private restartMenuButton?: Phaser.GameObjects.Rectangle;
+  private restartMenuButton?: Phaser.GameObjects.Image;
 
   private restartMenuLabel?: Phaser.GameObjects.Text;
 
   private restartHint?: Phaser.GameObjects.Text;
+
+  private restartHandled = false;
 
   protected constructor(sceneKey: string) {
     super(sceneKey);
@@ -103,6 +107,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.damageTaken = 0;
     this.levelActive = false;
     this.restartPromptVisible = false;
+    this.restartHandled = false;
     this.restartPayload = undefined;
     this.clearRestartPrompt();
     this.mutationEffects = {
@@ -122,66 +127,16 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.deathsInLevel = data.deathsInLevel;
     this.previousResults = [...data.results];
 
-    this.cameras.main.setBackgroundColor('#121212');
+    this.audio = new AudioSystem(this, this.runState.audio);
+    this.audio.playMusic(LEVEL_THEME_ASSETS[this.getLevelId()].music, true);
+
     this.physics.world.resume();
     this.physics.world.setBounds(0, 0, this.scale.width, this.scale.height);
 
-    this.player = this.add.rectangle(180, this.scale.height / 2, 26, 26, 0x4ef0ff);
-    this.physics.add.existing(this.player);
-
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setCollideWorldBounds(true);
-
-    const keyboard = this.input.keyboard;
-    if (!keyboard) {
-      throw new Error('Keyboard input is unavailable');
-    }
-
-    this.wasd = keyboard.addKeys({
-      up: Phaser.Input.Keyboard.KeyCodes.W,
-      down: Phaser.Input.Keyboard.KeyCodes.S,
-      left: Phaser.Input.Keyboard.KeyCodes.A,
-      right: Phaser.Input.Keyboard.KeyCodes.D,
-    }) as typeof this.wasd;
-    this.cursors = keyboard.createCursorKeys();
-    this.actionKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.attackKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
-
-    this.healthText = this.add.text(20, 16, '', { fontFamily: 'monospace', fontSize: '20px', color: '#ffffff' });
-    this.scoreText = this.add.text(20, 44, '', { fontFamily: 'monospace', fontSize: '18px', color: '#d2f8ff' });
-    this.timerText = this.add.text(20, 70, '', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe5b7' });
-    this.levelLabelText = this.add.text(this.scale.width / 2, 20, `LEVEL ${this.levelIndex + 1}`, {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: '#ffffff',
-    }).setOrigin(0.5, 0);
-    this.instructionText = this.add.text(this.scale.width / 2, 56, this.getObjectiveLabel(), {
-      fontFamily: 'monospace',
-      fontSize: '18px',
-      color: '#b8ffbc',
-      align: 'center',
-    }).setOrigin(0.5, 0);
-    this.objectiveText = this.add.text(this.scale.width / 2, 84, 'Countdown in progress...', {
-      fontFamily: 'monospace',
-      fontSize: '17px',
-      color: '#d4e8ff',
-      align: 'center',
-    }).setOrigin(0.5, 0);
-    this.instructionBar = this.add
-      .rectangle(this.scale.width / 2, this.scale.height - 26, this.scale.width - 120, 44, 0x000000, 0.35)
-      .setDepth(90);
-    this.controlHintText = this.add.text(this.scale.width / 2, this.scale.height - 28, 'Move: WASD / Arrows   Primary: SPACE   Alt Attack: J', {
-      fontFamily: 'monospace',
-      fontSize: '14px',
-      color: '#9cb9d2',
-      align: 'center',
-    }).setOrigin(0.5, 0.5).setDepth(91);
-    this.statusText = this.add.text(this.scale.width - 20, 16, 'Mutation: None', {
-      fontFamily: 'monospace',
-      fontSize: '18px',
-      color: '#ffd37f',
-      align: 'right',
-    }).setOrigin(1, 0);
+    this.buildBackground();
+    this.buildPlayer();
+    this.buildInputs();
+    this.buildHud();
 
     this.darknessOverlay = this.add
       .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0)
@@ -194,37 +149,36 @@ export abstract class BaseLevelScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5)
-      .setAlpha(0.85);
-    this.countdownStartedAt = this.time.now;
-    this.runCountdownStep(3);
+      .setDepth(950)
+      .setAlpha(0.9);
 
+    this.runCountdownStep(3);
     this.updateHud();
 
-    keyboard.once('keydown-ESC', () => {
+    this.input.keyboard?.once('keydown-ESC', () => {
       this.scene.start('MenuScene');
     });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearRestartPrompt());
   }
 
   update(time: number, delta: number): void {
+    if (this.runState.health <= 0) {
+      this.restartCurrentLevel();
+      return;
+    }
+
     if (!this.levelActive) {
-      if (!this.restartPromptVisible && this.countdownStartedAt > 0 && this.time.now - this.countdownStartedAt > 5_000) {
-        this.startLevelNow();
-      }
       return;
     }
 
     this.handleMovement(delta);
     this.onLevelUpdate(time, delta);
 
-    if (this.runState.health <= 0) {
-      this.restartCurrentLevel();
-      return;
-    }
-
     this.updateHud();
   }
 
-  protected handleMovement(delta: number): void {
+  protected handleMovement(_delta: number): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     let xDirection = 0;
     let yDirection = 0;
@@ -253,26 +207,34 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     body.setVelocity(xDirection * speed, yDirection * speed);
 
     if (this.runState.accessibility.reducedShake) {
-      this.player.angle = 0;
+      this.player.setRotation(0);
       return;
     }
 
-    this.player.angle = Math.sin((this.time.now + delta) / 130) * 5;
+    if (xDirection !== 0 || yDirection !== 0) {
+      this.player.setRotation(Math.sin(this.time.now / 120) * 0.06);
+    } else {
+      this.player.setRotation(0);
+    }
   }
 
   protected damage(amount: number): void {
-    this.damageTaken += Math.max(0, amount);
-    this.runState.health = Math.max(0, this.runState.health - Math.max(0, amount));
+    const safeAmount = Math.max(0, amount);
+    this.damageTaken += safeAmount;
+    this.runState.health = Math.max(0, this.runState.health - safeAmount);
+    this.audio?.playSfx(COMMON_SFX.hit, 0.8);
 
     if (this.runState.accessibility.reducedFlash) {
-      this.player.setFillStyle(0xffb0b0);
-      this.time.delayedCall(80, () => this.player.setFillStyle(0x4ef0ff));
+      this.player.setTint(0xffa1a1);
+      this.time.delayedCall(90, () => this.player.clearTint());
       return;
     }
 
-    this.cameras.main.flash(100, 255, 40, 40, false);
+    this.player.setTint(0xff7777);
+    this.time.delayedCall(120, () => this.player.clearTint());
+    this.cameras.main.flash(90, 255, 60, 60, false);
     if (!this.runState.accessibility.reducedShake) {
-      this.cameras.main.shake(120, 0.006);
+      this.cameras.main.shake(120, 0.005);
     }
   }
 
@@ -296,6 +258,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     });
 
     this.runState.score = applyScore(this.runState.score, score.total);
+    this.audio?.playSfx(COMMON_SFX.levelClear, 0.9);
 
     const result: LevelResult = {
       level: this.getLevelId(),
@@ -316,7 +279,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
   }
 
   protected restartCurrentLevel(): void {
-    if (this.restartPromptVisible) {
+    if (this.restartPromptVisible || this.restartHandled) {
       return;
     }
 
@@ -324,9 +287,11 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.restartPromptVisible = true;
     this.physics.world.pause();
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+
     const durationMs = Math.max(0, Math.floor(this.time.now - this.levelStartTime));
     this.runState.elapsedMs += durationMs;
     this.runState.deaths += 1;
+
     this.restartPayload = {
       runState: {
         ...this.runState,
@@ -337,6 +302,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
       results: this.previousResults,
     };
 
+    this.audio?.playSfx(COMMON_SFX.restart, 0.8);
     this.showRestartPrompt();
   }
 
@@ -354,6 +320,9 @@ export abstract class BaseLevelScene extends Phaser.Scene {
   }
 
   protected getLevelElapsedMs(): number {
+    if (!this.levelActive) {
+      return 0;
+    }
     return Math.max(0, Math.floor(this.time.now - this.levelStartTime));
   }
 
@@ -367,6 +336,126 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     }
 
     this.statusText.setText(`Mutation: ${this.mutationEffects.activeLabel}`);
+  }
+
+  protected getThemeAssetKeys(): (typeof LEVEL_THEME_ASSETS)[RunState['currentLevel']] {
+    return LEVEL_THEME_ASSETS[this.getLevelId()];
+  }
+
+  protected playSfx(key: string, volume = 1): void {
+    this.audio?.playSfx(key, volume);
+  }
+
+  private buildBackground(): void {
+    const theme = this.getThemeAssetKeys();
+    this.add
+      .image(this.scale.width / 2, this.scale.height / 2, theme.bg)
+      .setDisplaySize(this.scale.width, this.scale.height)
+      .setAlpha(0.95)
+      .setDepth(-30);
+  }
+
+  private buildPlayer(): void {
+    const theme = this.getThemeAssetKeys();
+    this.player = this.physics.add
+      .sprite(180, this.scale.height / 2, theme.playerSkin)
+      .setDisplaySize(34, 34)
+      .setDepth(120);
+    this.player.setCollideWorldBounds(true);
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(12, 4, 4);
+    body.setMaxVelocity(420, 420);
+  }
+
+  private buildInputs(): void {
+    const keyboard = this.input.keyboard;
+    if (!keyboard) {
+      throw new Error('Keyboard input is unavailable');
+    }
+
+    this.wasd = keyboard.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as typeof this.wasd;
+    this.cursors = keyboard.createCursorKeys();
+    this.actionKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.attackKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+  }
+
+  private buildHud(): void {
+    this.add
+      .image(this.scale.width / 2, 62, UI_ASSETS.hudPanel)
+      .setDisplaySize(this.scale.width - 38, 114)
+      .setAlpha(0.85)
+      .setDepth(90);
+
+    this.healthText = this.add
+      .text(22, 20, '', { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' })
+      .setDepth(100);
+    this.scoreText = this.add
+      .text(150, 20, '', { fontFamily: 'monospace', fontSize: '18px', color: '#d2f8ff' })
+      .setDepth(100);
+    this.timerText = this.add
+      .text(304, 20, '', { fontFamily: 'monospace', fontSize: '18px', color: '#ffe5b7' })
+      .setDepth(100);
+
+    this.levelLabelText = this.add
+      .text(this.scale.width / 2, 14, `LEVEL ${this.levelIndex + 1}`, {
+        fontFamily: 'monospace',
+        fontSize: '30px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(101);
+
+    this.instructionText = this.add
+      .text(this.scale.width / 2, 58, this.getObjectiveLabel(), {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#b8ffbc',
+        align: 'center',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(101);
+
+    this.objectiveText = this.add
+      .text(this.scale.width / 2, 82, 'Starting in 3...', {
+        fontFamily: 'monospace',
+        fontSize: '15px',
+        color: '#d4e8ff',
+        align: 'center',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(101);
+
+    this.add
+      .image(this.scale.width / 2, this.scale.height - 24, UI_ASSETS.card)
+      .setDisplaySize(this.scale.width - 120, 40)
+      .setDepth(91)
+      .setAlpha(0.9);
+
+    this.controlHintText = this.add
+      .text(this.scale.width / 2, this.scale.height - 24, 'Move: WASD / Arrows   Primary: SPACE   Alt Attack: J', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#b8cee3',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(95);
+
+    this.statusText = this.add
+      .text(this.scale.width - 22, 20, 'Mutation: None', {
+        fontFamily: 'monospace',
+        fontSize: '17px',
+        color: '#ffd37f',
+        align: 'right',
+      })
+      .setOrigin(1, 0)
+      .setDepth(101);
   }
 
   private runCountdownStep(value: number): void {
@@ -384,7 +473,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.countdownText.setText('GO');
     this.objectiveText.setText('Fight!');
     this.startLevelNow();
-    this.time.delayedCall(500, () => this.countdownText?.destroy());
+    this.time.delayedCall(600, () => this.countdownText?.destroy());
   }
 
   private startLevelNow(): void {
@@ -399,17 +488,23 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
   private showRestartPrompt(): void {
     this.restartOverlay = this.add
-      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.55)
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.65)
       .setDepth(2000);
 
+    this.restartPanel = this.add
+      .image(this.scale.width / 2, this.scale.height / 2 + 8, UI_ASSETS.modalPanel)
+      .setDisplaySize(680, 370)
+      .setDepth(2001)
+      .setAlpha(0.97);
+
     this.restartTitle = this.add
-      .text(this.scale.width / 2, this.scale.height / 2 - 96, 'SYSTEM FAILURE', {
+      .text(this.scale.width / 2, this.scale.height / 2 - 102, 'SYSTEM FAILURE', {
         fontFamily: 'monospace',
         fontSize: '56px',
         color: '#ffaaaa',
       })
       .setOrigin(0.5)
-      .setDepth(2001);
+      .setDepth(2002);
 
     this.restartSubtitle = this.add
       .text(this.scale.width / 2, this.scale.height / 2 - 42, 'Choose Restart to try this level again', {
@@ -418,12 +513,14 @@ export abstract class BaseLevelScene extends Phaser.Scene {
         color: '#e6f2ff',
       })
       .setOrigin(0.5)
-      .setDepth(2001);
+      .setDepth(2002);
 
     this.restartButton = this.add
-      .rectangle(this.scale.width / 2 - 120, this.scale.height / 2 + 36, 180, 54, 0x1d5f31, 0.95)
-      .setDepth(2001)
+      .image(this.scale.width / 2 - 130, this.scale.height / 2 + 40, UI_ASSETS.buttonPrimary)
+      .setDisplaySize(210, 64)
+      .setDepth(2002)
       .setInteractive({ useHandCursor: true });
+
     this.restartButtonLabel = this.add
       .text(this.restartButton.x, this.restartButton.y, 'Restart', {
         fontFamily: 'monospace',
@@ -431,12 +528,14 @@ export abstract class BaseLevelScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5)
-      .setDepth(2002);
+      .setDepth(2003);
 
     this.restartMenuButton = this.add
-      .rectangle(this.scale.width / 2 + 120, this.scale.height / 2 + 36, 180, 54, 0x4f4f4f, 0.95)
-      .setDepth(2001)
+      .image(this.scale.width / 2 + 130, this.scale.height / 2 + 40, UI_ASSETS.buttonSecondary)
+      .setDisplaySize(210, 64)
+      .setDepth(2002)
       .setInteractive({ useHandCursor: true });
+
     this.restartMenuLabel = this.add
       .text(this.restartMenuButton.x, this.restartMenuButton.y, 'Menu', {
         fontFamily: 'monospace',
@@ -444,42 +543,50 @@ export abstract class BaseLevelScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5)
-      .setDepth(2002);
+      .setDepth(2003);
 
     this.restartHint = this.add
-      .text(this.scale.width / 2, this.scale.height / 2 + 96, 'Shortcut: R restart, M menu', {
+      .text(this.scale.width / 2, this.scale.height / 2 + 104, 'Shortcut: R restart, M menu', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#c6d8ea',
       })
       .setOrigin(0.5)
-      .setDepth(2001);
+      .setDepth(2002);
 
     const restart = () => {
-      if (!this.restartPayload) {
+      if (!this.restartPayload || this.restartHandled) {
         return;
       }
+
+      this.restartHandled = true;
       this.clearRestartPrompt();
+      this.time.removeAllEvents();
       this.scene.restart(this.restartPayload);
     };
 
     const toMenu = () => {
+      if (this.restartHandled) {
+        return;
+      }
+
+      this.restartHandled = true;
       this.clearRestartPrompt();
       this.scene.start('MenuScene');
     };
 
-    this.restartButton.on('pointerover', () => this.restartButton?.setFillStyle(0x2f7f42, 1));
-    this.restartButton.on('pointerout', () => this.restartButton?.setFillStyle(0x1d5f31, 0.95));
+    this.restartButton.on('pointerover', () => this.restartButton?.setAlpha(1));
+    this.restartButton.on('pointerout', () => this.restartButton?.setAlpha(0.94));
     this.restartButton.on('pointerdown', restart);
 
-    this.restartMenuButton.on('pointerover', () => this.restartMenuButton?.setFillStyle(0x666666, 1));
-    this.restartMenuButton.on('pointerout', () => this.restartMenuButton?.setFillStyle(0x4f4f4f, 0.95));
+    this.restartMenuButton.on('pointerover', () => this.restartMenuButton?.setAlpha(1));
+    this.restartMenuButton.on('pointerout', () => this.restartMenuButton?.setAlpha(0.94));
     this.restartMenuButton.on('pointerdown', toMenu);
 
-    this.input.keyboard?.once('keydown-R', restart);
-    this.input.keyboard?.once('keydown-M', toMenu);
-    this.input.keyboard?.once('keydown-ENTER', restart);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearRestartPrompt());
+    const keyboard = this.input.keyboard;
+    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.R).once('down', restart);
+    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.M).once('down', toMenu);
+    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER).once('down', restart);
   }
 
   private clearRestartPrompt(): void {
@@ -487,6 +594,9 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
     this.restartOverlay?.destroy();
     this.restartOverlay = undefined;
+
+    this.restartPanel?.destroy();
+    this.restartPanel = undefined;
 
     this.restartTitle?.destroy();
     this.restartTitle = undefined;

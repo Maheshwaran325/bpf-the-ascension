@@ -17,6 +17,8 @@ export class Level6GodmodeScene extends BaseLevelScene {
 
   private mutationBanner?: Phaser.GameObjects.Text;
 
+  private avatar?: Phaser.GameObjects.Image;
+
   constructor() {
     super('Level6GodmodeScene');
   }
@@ -26,33 +28,35 @@ export class Level6GodmodeScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Final protocol: survive 90s. Rules mutate every 8 seconds.';
+    return 'Final protocol: survive 90s. Mutations every 8 seconds.';
   }
 
   protected onLevelStart(): void {
     this.strikeAtMs = -1;
-    this.cameras.main.setBackgroundColor('#050514');
 
-    for (let i = 0; i < 120; i += 1) {
-      this.add.circle(
-        Phaser.Math.Between(0, this.scale.width),
-        Phaser.Math.Between(0, this.scale.height),
-        Phaser.Math.Between(1, 2),
-        0xffffff,
-        Phaser.Math.FloatBetween(0.1, 0.7),
-      );
-    }
+    this.avatar = this.add
+      .image(this.scale.width / 2, 136, 'l6_ai_avatar')
+      .setDisplaySize(220, 220)
+      .setDepth(125)
+      .setAlpha(0.96);
 
-    this.add.circle(this.scale.width / 2, 120, 110, 0xffdd81, 0.28);
-    this.add.circle(this.scale.width / 2, 120, 62, 0xfff0b8, 0.42);
+    this.tweens.add({
+      targets: this.avatar,
+      y: 126,
+      duration: 1700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
 
     this.mutationBanner = this.add
-      .text(this.scale.width / 2, 188, 'Mutation: None', {
+      .text(this.scale.width / 2, 206, 'Mutation: None', {
         fontFamily: 'monospace',
         fontSize: '28px',
         color: '#ffd48c',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(180);
 
     this.fireHazards = this.physics.add.group({ allowGravity: false });
     this.glitchHazards = this.physics.add.group({ allowGravity: false });
@@ -79,12 +83,14 @@ export class Level6GodmodeScene extends BaseLevelScene {
     });
 
     this.physics.add.overlap(this.player, this.fireHazards, (_player, hazard) => {
-      hazard.destroy();
+      const h = hazard as Phaser.Physics.Arcade.Image;
+      h.destroy();
       this.damage(9);
     });
 
     this.physics.add.overlap(this.player, this.glitchHazards, (_player, hazard) => {
-      hazard.destroy();
+      const h = hazard as Phaser.Physics.Arcade.Image;
+      h.destroy();
       this.damage(7);
     });
 
@@ -94,27 +100,31 @@ export class Level6GodmodeScene extends BaseLevelScene {
   protected onLevelUpdate(_time: number, _delta: number): void {
     const elapsed = this.getLevelElapsedMs();
 
-    for (const hazard of [...this.fireHazards.getChildren()] as Phaser.GameObjects.Rectangle[]) {
+    for (const hazard of [...this.fireHazards.getChildren()] as Phaser.Physics.Arcade.Image[]) {
       if (hazard.y > this.scale.height + 40 || hazard.y < -40 || hazard.x < -40 || hazard.x > this.scale.width + 40) {
         hazard.destroy();
       }
     }
 
-    for (const hazard of [...this.glitchHazards.getChildren()] as Phaser.GameObjects.Rectangle[]) {
+    for (const hazard of [...this.glitchHazards.getChildren()] as Phaser.Physics.Arcade.Image[]) {
       if (hazard.y > this.scale.height + 40 || hazard.y < -40 || hazard.x < -40 || hazard.x > this.scale.width + 40) {
         hazard.destroy();
       }
     }
 
     if (this.mutationSystem) {
+      const previousLabel = this.mutationBanner?.text;
       const active = this.mutationSystem.update(elapsed);
       this.mutationBanner?.setText(`Mutation: ${active?.label ?? 'None'}`);
+      if (this.mutationBanner?.text !== previousLabel && active) {
+        this.playSfx('sfx_mutation', 0.85);
+        this.flashMutationCue();
+      }
     }
 
-    // Parry check: press SPACE during the strike window
     if (Phaser.Input.Keyboard.JustDown(this.actionKey) && this.strikeAtMs > 0) {
       const deltaMs = parryDeltaMs(this.strikeAtMs, elapsed);
-      if (isParrySuccess(deltaMs, 200)) {
+      if (isParrySuccess(deltaMs, 280)) {
         this.runState.score += 18;
         this.strikeAtMs = -1;
         this.showParrySuccess();
@@ -125,7 +135,6 @@ export class Level6GodmodeScene extends BaseLevelScene {
       }
     }
 
-    // Missed the parry window entirely
     if (this.strikeAtMs > 0 && elapsed > this.strikeAtMs + 200) {
       this.damage(16);
       this.strikeAtMs = -1;
@@ -139,11 +148,10 @@ export class Level6GodmodeScene extends BaseLevelScene {
     }
 
     const remaining = Math.ceil((SURVIVE_MS - elapsed) / 1000);
-    this.updateHud(`Survive ${remaining}s | SPACE to parry sword strikes | Hazards active`);
+    this.updateHud(`Survive ${remaining}s | SPACE to parry sword strikes | Composite hazards active`);
   }
 
   private showStrikeWarning(): void {
-    // Expanding ring around the player as warning
     const ring = this.add.circle(this.player.x, this.player.y, 20, 0xffd700, 0).setDepth(500);
     ring.setStrokeStyle(3, 0xffd700, 0.9);
 
@@ -159,9 +167,8 @@ export class Level6GodmodeScene extends BaseLevelScene {
       onComplete: () => ring.destroy(),
     });
 
-    // "PARRY!" warning text
     const parryText = this.add
-      .text(this.player.x, this.player.y - 50, '⚔ PARRY!', {
+      .text(this.player.x, this.player.y - 50, 'PARRY!', {
         fontFamily: 'monospace',
         fontSize: '22px',
         color: '#ffd700',
@@ -177,29 +184,9 @@ export class Level6GodmodeScene extends BaseLevelScene {
       ease: 'Sine.easeOut',
       onComplete: () => parryText.destroy(),
     });
-
-    // Slash line that sweeps in
-    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-    const startX = this.player.x + Math.cos(angle) * 200;
-    const startY = this.player.y + Math.sin(angle) * 200;
-
-    const slash = this.add
-      .line(0, 0, startX, startY, this.player.x, this.player.y, 0xffd700, 0.8)
-      .setOrigin(0, 0)
-      .setLineWidth(2)
-      .setDepth(499);
-
-    this.tweens.add({
-      targets: slash,
-      alpha: 0,
-      duration: 700,
-      ease: 'Sine.easeIn',
-      onComplete: () => slash.destroy(),
-    });
   }
 
   private showParrySuccess(): void {
-    // Green burst = successful parry
     const burst = this.add.circle(this.player.x, this.player.y, 10, 0x4eff8a, 0.8).setDepth(510);
     this.tweens.add({
       targets: burst,
@@ -228,40 +215,64 @@ export class Level6GodmodeScene extends BaseLevelScene {
   }
 
   private showSlashHit(): void {
-    // Red X slash = hit, failed to parry
     const cx = this.player.x;
     const cy = this.player.y;
 
-    const line1 = this.add.line(0, 0, cx - 30, cy - 30, cx + 30, cy + 30, 0xff4444, 0.9)
-      .setOrigin(0, 0).setLineWidth(3).setDepth(510);
-    const line2 = this.add.line(0, 0, cx + 30, cy - 30, cx - 30, cy + 30, 0xff4444, 0.9)
-      .setOrigin(0, 0).setLineWidth(3).setDepth(510);
+    const line1 = this.add
+      .line(0, 0, cx - 30, cy - 30, cx + 30, cy + 30, 0xff4444, 0.9)
+      .setOrigin(0, 0)
+      .setLineWidth(3)
+      .setDepth(510);
+    const line2 = this.add
+      .line(0, 0, cx + 30, cy - 30, cx - 30, cy + 30, 0xff4444, 0.9)
+      .setOrigin(0, 0)
+      .setLineWidth(3)
+      .setDepth(510);
 
     this.tweens.add({
       targets: [line1, line2],
       alpha: 0,
       duration: 400,
-      onComplete: () => { line1.destroy(); line2.destroy(); },
+      onComplete: () => {
+        line1.destroy();
+        line2.destroy();
+      },
     });
   }
 
+  private flashMutationCue(): void {
+    if (this.runState.accessibility.reducedFlash) {
+      return;
+    }
+
+    this.cameras.main.flash(85, 180, 160, 255, false);
+  }
+
   private spawnFire(): void {
-    const hazard = this.add.rectangle(Phaser.Math.Between(24, this.scale.width - 24), -16, 20, 20, 0xff7c3b);
-    this.physics.add.existing(hazard);
-    this.fireHazards.add(hazard); // Add to group FIRST
-    const body = hazard.body as Phaser.Physics.Arcade.Body;
-    body.setAllowGravity(false);
-    body.setVelocity(Phaser.Math.Between(-120, 120), Phaser.Math.Between(210, 320));
+    const hazard = this.physics.add
+      .image(Phaser.Math.Between(24, this.scale.width - 24), -16, 'l6_fire')
+      .setDisplaySize(22, 22)
+      .setDepth(150);
+
+    (hazard.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+    hazard.setVelocity(Phaser.Math.Between(-120, 120), Phaser.Math.Between(210, 320));
+    this.fireHazards.add(hazard);
   }
 
   private spawnGlitch(): void {
     const fromLeft = Math.random() > 0.5;
-    const hazard = this.add.rectangle(fromLeft ? -30 : this.scale.width + 30, Phaser.Math.Between(100, this.scale.height - 90), 26, 18, 0x8c80ff);
-    this.physics.add.existing(hazard);
-    this.glitchHazards.add(hazard); // Add to group FIRST
-    const body = hazard.body as Phaser.Physics.Arcade.Body;
-    body.setAllowGravity(false);
-    body.setVelocity(fromLeft ? Phaser.Math.Between(260, 360) : -Phaser.Math.Between(260, 360), Phaser.Math.Between(-80, 80));
+    const hazard = this.physics.add
+      .image(fromLeft ? -30 : this.scale.width + 30, Phaser.Math.Between(100, this.scale.height - 90), 'l6_glitch')
+      .setDisplaySize(28, 20)
+      .setDepth(151)
+      .setRotation(Phaser.Math.FloatBetween(-0.5, 0.5));
+
+    (hazard.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+    hazard.setVelocity(
+      fromLeft ? Phaser.Math.Between(260, 360) : -Phaser.Math.Between(260, 360),
+      Phaser.Math.Between(-80, 80),
+    );
+    this.glitchHazards.add(hazard);
   }
 
   private createMutations(): RuleMutation[] {
