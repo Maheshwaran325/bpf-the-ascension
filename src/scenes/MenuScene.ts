@@ -20,6 +20,8 @@ interface MenuOption {
 export class MenuScene extends Phaser.Scene {
   private selected = 0;
 
+  private cursorIcon!: Phaser.GameObjects.Text;
+
   private accessibility: AccessibilitySettings = { ...DEFAULT_ACCESSIBILITY };
 
   private audioSettings: AudioSettings = { ...DEFAULT_AUDIO };
@@ -131,6 +133,16 @@ export class MenuScene extends Phaser.Scene {
         .setShadow(2, 2, '#000000', 0, true, true),
     );
 
+    this.cursorIcon = this.add
+      .text(0, 0, '>', {
+        fontFamily: GAME_FONT,
+        fontSize: '36px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setShadow(2, 2, '#4a9eff', 8, true, true);
+
     this.add
       .text(
         this.scale.width / 2,
@@ -190,14 +202,24 @@ export class MenuScene extends Phaser.Scene {
     this.renderOptions();
   }
 
+  update(time: number, delta: number): void {
+    if (this.cursorIcon && this.optionTexts.length > 0) {
+      const text = this.optionTexts[this.selected];
+      if (text && text.displayWidth > 0) {
+        this.cursorIcon.setPosition(text.x - text.displayWidth / 2 - 30, text.y);
+        // Subtle pulse for the cursor
+        this.cursorIcon.setAlpha(0.7 + 0.3 * Math.sin(time / 150));
+      }
+    }
+  }
+
   private renderOptions(): void {
     this.optionTexts.forEach((text, idx) => {
       const isSelected = idx === this.selected;
-      text.setText(`${isSelected ? '> ' : '  '} ${this.options[idx].render()}`);
+      text.setText(this.options[idx].render());
       text.setColor(isSelected ? '#ffffff' : '#88b6d8');
       text.setScale(isSelected ? 1.05 : 1);
 
-      // subtle pulse effect or highlight if selected could be added here or in update loop
       if (isSelected) {
         text.setShadow(2, 2, '#4a9eff', 8, true, true);
       } else {
