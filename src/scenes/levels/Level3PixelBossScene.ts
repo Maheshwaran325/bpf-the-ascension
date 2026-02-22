@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const TARGET_RESOLUTION = 70;
+const TARGET_RESOLUTION = 80;
 const RESOLUTION_PER_HIT = 5;
-const PHASE_TWO_AT = 35;
+const PHASE_TWO_AT = 40;
 
 export class Level3PixelBossScene extends BaseLevelScene {
   private pixelBoss!: Phaser.GameObjects.Image;
@@ -27,7 +27,7 @@ export class Level3PixelBossScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'SPACE fires 4K ray. Dodge incoming pixel blocks to 70% resolution.';
+    return 'SPACE fires 4K ray. Dodge incoming pixel blocks to 80% resolution.';
   }
 
   protected onLevelStart(): void {
@@ -57,7 +57,7 @@ export class Level3PixelBossScene extends BaseLevelScene {
     });
 
     this.time.addEvent({
-      delay: 380,
+      delay: 320,
       loop: true,
       callback: () => this.spawnBlockWave(),
     });

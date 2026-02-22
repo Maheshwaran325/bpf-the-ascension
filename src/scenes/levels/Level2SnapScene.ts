@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const REQUIRED_CAPTURES = 20;
-const SNAP_RADIUS = 170;
-const SNAP_COOLDOWN_MS = 550;
-const MAX_ENEMIES = 22;
+const REQUIRED_CAPTURES = 25;
+const SNAP_RADIUS = 140;
+const SNAP_COOLDOWN_MS = 650;
+const MAX_ENEMIES = 26;
 
 export class Level2SnapScene extends BaseLevelScene {
   private blurEnemies!: Phaser.Physics.Arcade.Group;
@@ -24,7 +24,7 @@ export class Level2SnapScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'SPACE pulse captures nearby targets. Capture 20 clear frames.';
+    return 'SPACE pulse captures nearby targets. Capture 25 clear frames.';
   }
 
   protected onLevelStart(): void {

@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { isParrySuccess, parryDeltaMs } from '../../systems/mechanics';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const TARGET_PARRIES = 14;
-const TELEGRAPH_MS = 420;
-const PARRY_WINDOW_MS = 110;
+const TARGET_PARRIES = 18;
+const TELEGRAPH_MS = 380;
+const PARRY_WINDOW_MS = 90;
 
 export class Level4JinSakaiScene extends BaseLevelScene {
   private parries = 0;
@@ -24,7 +24,7 @@ export class Level4JinSakaiScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'No shooting. SPACE parry 14 strikes within 110ms.';
+    return 'SPACE parry 18 strikes within range.';
   }
 
   protected onLevelStart(): void {

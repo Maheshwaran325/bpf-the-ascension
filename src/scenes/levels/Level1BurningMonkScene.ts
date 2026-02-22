@@ -3,10 +3,10 @@ import { updateTemperature } from '../../systems/mechanics';
 import { LevelSceneData } from '../../types/game';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const GOAL_MS = 20_000;
-const FIRE_SPAWN_MS = 300;
-const COOLANT_SPAWN_MS = 6_000;
-const HEAT_SURGE_MS = 4_000;
+const GOAL_MS = 30_000;
+const FIRE_SPAWN_MS = 250;
+const COOLANT_SPAWN_MS = 7_000;
+const HEAT_SURGE_MS = 3_500;
 
 export class Level1BurningMonkScene extends BaseLevelScene {
   private temperature = 25;
@@ -31,7 +31,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Survive 20s. Keep temp under 100%. Collect coffee coolant.';
+    return 'Survive 30s. Keep temp under 100%. Collect coffee coolant.';
   }
 
   protected onLevelStart(): void {

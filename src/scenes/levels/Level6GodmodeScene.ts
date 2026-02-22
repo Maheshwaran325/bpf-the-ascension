@@ -1,7 +1,7 @@
 import { isParrySuccess, parryDeltaMs } from '../../systems/mechanics';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const SURVIVE_MS = 60_000;
+const SURVIVE_MS = 75_000;
 
 export class Level6GodmodeScene extends BaseLevelScene {
   private glitchHazards!: Phaser.Physics.Arcade.Group;
@@ -19,7 +19,7 @@ export class Level6GodmodeScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Final protocol: survive 60s.';
+    return 'Final protocol: survive 75s.';
   }
 
   protected onLevelStart(): void {
@@ -44,16 +44,16 @@ export class Level6GodmodeScene extends BaseLevelScene {
 
     // Timers placed here will start ticking as soon as the level begins (after GO).
     this.time.addEvent({
-      delay: 560,
+      delay: 450,
       loop: true,
       callback: () => this.spawnGlitch(),
     });
 
     this.time.addEvent({
-      delay: 1_700,
+      delay: 1_400,
       loop: true,
       callback: () => {
-        this.strikeAtMs = this.getLevelElapsedMs() + 700;
+        this.strikeAtMs = this.getLevelElapsedMs() + 600;
         this.showStrikeWarning();
       },
     });
