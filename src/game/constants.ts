@@ -8,9 +8,9 @@ export const DEFAULT_ACCESSIBILITY: AccessibilitySettings = {
 };
 
 export const DEFAULT_AUDIO: AudioSettings = {
-  master: 1,
+  master: 0.5,
   music: 0.8,
-  sfx: 0.9,
+  sfx: 0.8,
   muted: false,
 };
 

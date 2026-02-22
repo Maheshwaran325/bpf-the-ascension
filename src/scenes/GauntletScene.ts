@@ -16,6 +16,7 @@ import {
   FailedLevelPayload,
   GauntletSceneData,
   LevelResult,
+  ResumeRunPayload,
   RunState,
 } from '../types/game';
 
@@ -34,9 +35,9 @@ export class GauntletScene extends Phaser.Scene {
     super('GauntletScene');
   }
 
-  create(data: GauntletSceneData = { type: 'newRun' }): void {
+  create(data: GauntletSceneData): void {
     this.cameras.main.setBackgroundColor('#090d15');
-    const startLevelIndex = 0;
+    const startLevelIndex = 5;
 
     if (data.type === 'newRun') {
       const accessibility = this.resolveAccessibility(data.accessibility);
@@ -46,6 +47,7 @@ export class GauntletScene extends Phaser.Scene {
         deaths: 0,
         currentLevel: LEVEL_ORDER[startLevelIndex],
         elapsedMs: 0,
+        playerName: data.playerName,
         accessibility,
         audio: this.resolveAudio(data.audio),
       };
@@ -60,6 +62,14 @@ export class GauntletScene extends Phaser.Scene {
     if (isFailedPayload(data)) {
       this.showCard('SYSTEM FAILURE', `Retrying ${LEVEL_LABELS[LEVEL_ORDER[data.levelIndex]]}`);
       this.time.delayedCall(700, () => {
+        this.startLevel(data.levelIndex, data.runState, data.results, data.deathsInLevel);
+      });
+      return;
+    }
+
+    if (isResumePayload(data)) {
+      this.showCard('RESUME ASCENSION', `Booting ${LEVEL_LABELS[LEVEL_ORDER[data.levelIndex]]}`);
+      this.time.delayedCall(800, () => {
         this.startLevel(data.levelIndex, data.runState, data.results, data.deathsInLevel);
       });
       return;
@@ -159,4 +169,8 @@ function isFailedPayload(data: GauntletSceneData): data is FailedLevelPayload {
 
 function isCompletedPayload(data: GauntletSceneData): data is CompletedLevelPayload {
   return data.type === 'levelComplete';
+}
+
+function isResumePayload(data: GauntletSceneData): data is ResumeRunPayload {
+  return data.type === 'resumeRun';
 }

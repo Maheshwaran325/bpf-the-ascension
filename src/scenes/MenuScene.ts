@@ -8,6 +8,7 @@ import {
   saveAccessibilitySettings,
   saveAudioSettings,
 } from '../storage/settings';
+import { loadActiveRun } from '../storage/run';
 import { AccessibilitySettings, AudioSettings } from '../types/game';
 
 interface MenuOption {
@@ -64,19 +65,42 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(10)
       .setShadow(2, 2, '#000000', 0, true, true);
 
-    this.options = [
-      {
-        key: 'start',
-        render: () => 'Start Gauntlet',
+    const activeRun = loadActiveRun();
+
+    this.options = [];
+
+    if (activeRun) {
+      this.options.push({
+        key: 'resume',
+        render: () => 'Resume Run',
         action: () => {
           this.playUiConfirm();
           this.scene.start('GauntletScene', {
-            type: 'newRun',
+            type: 'resumeRun',
+            runState: activeRun.runState,
+            levelIndex: activeRun.levelIndex,
+            deathsInLevel: activeRun.deathsInLevel,
+            results: activeRun.results,
+          });
+        },
+      });
+    }
+
+    this.options.push(
+      {
+        key: 'start',
+        render: () => (activeRun ? 'New Gauntlet' : 'Start Gauntlet'),
+        action: () => {
+          this.playUiConfirm();
+          this.scene.start('InitialsScene', {
             accessibility: this.accessibility,
             audio: this.audioSettings,
           });
         },
-      },
+      }
+    );
+
+    this.options.push(
       {
         key: 'leaderboard',
         render: () => 'Leaderboard',
@@ -92,8 +116,8 @@ export class MenuScene extends Phaser.Scene {
           this.playUiConfirm();
           this.scene.start('SettingsScene');
         },
-      },
-    ];
+      }
+    );
 
     this.optionTexts = this.options.map((_, idx) =>
       this.add
@@ -111,7 +135,7 @@ export class MenuScene extends Phaser.Scene {
       .text(
         this.scale.width / 2,
         this.scale.height - 108,
-        'Controls: WASD/Arrows move   SPACE action   J optional secondary',
+        'Controls: WASD/Arrows move   SPACE action',
         {
           fontFamily: GAME_FONT,
           fontSize: '24px',

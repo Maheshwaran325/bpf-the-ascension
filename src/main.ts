@@ -58,6 +58,7 @@ window.__BPF_DEBUG__ = {
   startNewRun: (reducedFlash = false, reducedShake = false) => {
     game.scene.start('GauntletScene', {
       type: 'newRun',
+      playerName: 'DBG',
       accessibility: {
         reducedFlash,
         reducedShake,

@@ -12,13 +12,11 @@ interface ResultSceneData {
 }
 
 export class ResultScene extends Phaser.Scene {
-  private initials = '';
-
-  private initialsText?: Phaser.GameObjects.Text;
-
   private submitted = false;
 
   private audio?: AudioSystem;
+  private currentInitials = '';
+  private statusText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('ResultScene');
@@ -71,19 +69,21 @@ export class ResultScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
+    this.currentInitials = data.runState.playerName;
+
     this.add
-      .text(this.scale.width / 2, 520, 'Enter Initials (A-Z, 0-9) and press ENTER to submit', {
+      .text(this.scale.width / 2, 520, `Operative: ${this.currentInitials}`, {
         fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#ffe7a9',
+        fontSize: '28px',
+        color: '#ffdf8f',
       })
       .setOrigin(0.5);
 
-    this.initialsText = this.add
-      .text(this.scale.width / 2, 568, this.renderInitials(), {
+    this.statusText = this.add
+      .text(this.scale.width / 2, 580, 'Saving to global network...', {
         fontFamily: 'monospace',
-        fontSize: '64px',
-        color: '#ffffff',
+        fontSize: '18px',
+        color: '#ffdd77',
       })
       .setOrigin(0.5);
 
@@ -96,36 +96,25 @@ export class ResultScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const keyboard = this.input.keyboard;
-    if (!keyboard) {
-      return;
+    if (keyboard) {
+      keyboard.on('keydown-L', () => this.scene.start('LeaderboardScene'));
+      keyboard.on('keydown-M', () => this.scene.start('MenuScene'));
     }
 
-    keyboard.on('keydown', (event: KeyboardEvent) => {
-      if (this.submitted) {
-        return;
+    // Auto submit
+    this.submit(data.runState.score, data.runState.elapsedMs).catch(() => {
+      if (this.statusText) {
+        this.statusText.setText('Failed to contact global network. Saved locally.');
+        this.statusText.setColor('#ff9a9a');
       }
-
-      if (/^[a-z0-9]$/i.test(event.key) && this.initials.length < 3) {
-        this.initials += event.key.toUpperCase();
-      } else if (event.key === 'Backspace') {
-        this.initials = this.initials.slice(0, -1);
-      } else if (event.key === 'Enter') {
-        this.submit(data.runState.score, data.runState.elapsedMs);
-        return;
-      }
-
-      this.initials = sanitizeInitials(this.initials).slice(0, 3);
-      this.initialsText?.setText(this.renderInitials());
     });
-
-    keyboard.on('keydown-L', () => this.scene.start('LeaderboardScene'));
-    keyboard.on('keydown-M', () => this.scene.start('MenuScene'));
   }
 
-  private submit(score: number, clearTimeMs: number): void {
-    const initials = sanitizeInitials(this.initials).padEnd(3, 'X');
-    addLeaderboardEntry({
-      initials,
+  private async submit(score: number, clearTimeMs: number): Promise<void> {
+    this.submitted = true;
+
+    await addLeaderboardEntry({
+      initials: this.currentInitials,
       score: Math.floor(score),
       clearTimeMs: Math.floor(clearTimeMs),
       dateISO: new Date().toISOString(),
@@ -133,17 +122,10 @@ export class ResultScene extends Phaser.Scene {
     });
 
     this.audio?.playSfx(COMMON_SFX.uiConfirm, 0.85);
-    this.submitted = true;
-    this.add
-      .text(this.scale.width / 2, 614, 'Submission saved. Press L for leaderboard or M for menu.', {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#9effaf',
-      })
-      .setOrigin(0.5);
-  }
 
-  private renderInitials(): string {
-    return this.initials.padEnd(3, '_');
+    if (this.statusText) {
+      this.statusText.setText('Submission saved. Press L for leaderboard or M for menu.');
+      this.statusText.setColor('#9effaf');
+    }
   }
 }

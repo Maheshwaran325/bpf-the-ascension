@@ -1,21 +1,12 @@
-import Phaser from 'phaser';
-import { MutationSystem } from '../../systems/MutationSystem';
 import { isParrySuccess, parryDeltaMs } from '../../systems/mechanics';
-import { RuleMutation } from '../../types/game';
 import { BaseLevelScene } from './BaseLevelScene';
 
-const SURVIVE_MS = 90_000;
+const SURVIVE_MS = 60_000;
 
 export class Level6GodmodeScene extends BaseLevelScene {
-  private fireHazards!: Phaser.Physics.Arcade.Group;
-
   private glitchHazards!: Phaser.Physics.Arcade.Group;
 
   private strikeAtMs = -1;
-
-  private mutationSystem?: MutationSystem;
-
-  private mutationBanner?: Phaser.GameObjects.Text;
 
   private avatar?: Phaser.GameObjects.Image;
 
@@ -28,47 +19,32 @@ export class Level6GodmodeScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Final protocol: survive 90s. Mutations every 8 seconds.';
+    return 'Final protocol: survive 60s.';
   }
 
   protected onLevelStart(): void {
     this.strikeAtMs = -1;
 
     this.avatar = this.add
-      .image(this.scale.width / 2, 136, 'l6_ai_avatar')
+      .image(this.scale.width / 2, 150, 'l6_ai_avatar')
       .setDisplaySize(220, 220)
-      .setDepth(125)
+      .setDepth(85)
       .setAlpha(0.96);
 
     this.tweens.add({
       targets: this.avatar,
-      y: 126,
+      y: 140,
       duration: 1700,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.InOut',
     });
 
-    this.mutationBanner = this.add
-      .text(this.scale.width / 2, 206, 'Mutation: None', {
-        fontFamily: 'monospace',
-        fontSize: '28px',
-        color: '#ffd48c',
-      })
-      .setOrigin(0.5)
-      .setDepth(180);
-
-    this.fireHazards = this.physics.add.group({ allowGravity: false });
     this.glitchHazards = this.physics.add.group({ allowGravity: false });
 
+    // Timers placed here will start ticking as soon as the level begins (after GO).
     this.time.addEvent({
       delay: 560,
-      loop: true,
-      callback: () => this.spawnFire(),
-    });
-
-    this.time.addEvent({
-      delay: 420,
       loop: true,
       callback: () => this.spawnGlitch(),
     });
@@ -82,43 +58,19 @@ export class Level6GodmodeScene extends BaseLevelScene {
       },
     });
 
-    this.physics.add.overlap(this.player, this.fireHazards, (_player, hazard) => {
-      const h = hazard as Phaser.Physics.Arcade.Image;
-      h.destroy();
-      this.damage(9);
-    });
-
     this.physics.add.overlap(this.player, this.glitchHazards, (_player, hazard) => {
       const h = hazard as Phaser.Physics.Arcade.Image;
       h.destroy();
       this.damage(7);
     });
-
-    this.mutationSystem = new MutationSystem(this.createMutations(), 8_000, 5_000);
   }
 
   protected onLevelUpdate(_time: number, _delta: number): void {
     const elapsed = this.getLevelElapsedMs();
 
-    for (const hazard of [...this.fireHazards.getChildren()] as Phaser.Physics.Arcade.Image[]) {
-      if (hazard.y > this.scale.height + 40 || hazard.y < -40 || hazard.x < -40 || hazard.x > this.scale.width + 40) {
-        hazard.destroy();
-      }
-    }
-
     for (const hazard of [...this.glitchHazards.getChildren()] as Phaser.Physics.Arcade.Image[]) {
       if (hazard.y > this.scale.height + 40 || hazard.y < -40 || hazard.x < -40 || hazard.x > this.scale.width + 40) {
         hazard.destroy();
-      }
-    }
-
-    if (this.mutationSystem) {
-      const previousLabel = this.mutationBanner?.text;
-      const active = this.mutationSystem.update(elapsed);
-      this.mutationBanner?.setText(`Mutation: ${active?.label ?? 'None'}`);
-      if (this.mutationBanner?.text !== previousLabel && active) {
-        this.playSfx('sfx_mutation', 0.85);
-        this.flashMutationCue();
       }
     }
 
@@ -142,13 +94,12 @@ export class Level6GodmodeScene extends BaseLevelScene {
     }
 
     if (elapsed >= SURVIVE_MS) {
-      this.mutationSystem?.clearAll();
       this.completeLevel(SURVIVE_MS);
       return;
     }
 
     const remaining = Math.ceil((SURVIVE_MS - elapsed) / 1000);
-    this.updateHud(`Survive ${remaining}s | SPACE to parry sword strikes | Composite hazards active`);
+    this.updateHud(`Survive ${remaining}s | Dodge & SPACE to parry sword strikes`);
   }
 
   private showStrikeWarning(): void {
@@ -240,25 +191,6 @@ export class Level6GodmodeScene extends BaseLevelScene {
     });
   }
 
-  private flashMutationCue(): void {
-    if (this.runState.accessibility.reducedFlash) {
-      return;
-    }
-
-    this.cameras.main.flash(85, 180, 160, 255, false);
-  }
-
-  private spawnFire(): void {
-    const hazard = this.physics.add
-      .image(Phaser.Math.Between(24, this.scale.width - 24), -16, 'l6_fire')
-      .setDisplaySize(22, 22)
-      .setDepth(150);
-
-    (hazard.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
-    hazard.setVelocity(Phaser.Math.Between(-120, 120), Phaser.Math.Between(210, 320));
-    this.fireHazards.add(hazard);
-  }
-
   private spawnGlitch(): void {
     const fromLeft = Math.random() > 0.5;
     const hazard = this.physics.add
@@ -267,84 +199,12 @@ export class Level6GodmodeScene extends BaseLevelScene {
       .setDepth(151)
       .setRotation(Phaser.Math.FloatBetween(-0.5, 0.5));
 
+    this.glitchHazards.add(hazard);
+
     (hazard.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
     hazard.setVelocity(
       fromLeft ? Phaser.Math.Between(260, 360) : -Phaser.Math.Between(260, 360),
       Phaser.Math.Between(-80, 80),
     );
-    this.glitchHazards.add(hazard);
-  }
-
-  private createMutations(): RuleMutation[] {
-    return [
-      {
-        id: 'gravity_flip',
-        label: 'Gravity Flip',
-        durationMs: 5_000,
-        apply: () => {
-          this.setMutationEffects({
-            gravityMultiplier: -1,
-            activeLabel: 'Gravity Flip',
-          });
-        },
-        clear: () => {
-          this.setMutationEffects({
-            gravityMultiplier: 1,
-            activeLabel: 'None',
-          });
-        },
-      },
-      {
-        id: 'reverse_controls',
-        label: 'Reverse Controls',
-        durationMs: 5_000,
-        apply: () => {
-          this.setMutationEffects({
-            reverseControls: true,
-            activeLabel: 'Reverse Controls',
-          });
-        },
-        clear: () => {
-          this.setMutationEffects({
-            reverseControls: false,
-            activeLabel: 'None',
-          });
-        },
-      },
-      {
-        id: 'darkness_mask',
-        label: 'Darkness Mask',
-        durationMs: 5_000,
-        apply: () => {
-          this.setMutationEffects({
-            darknessMask: true,
-            activeLabel: 'Darkness Mask',
-          });
-        },
-        clear: () => {
-          this.setMutationEffects({
-            darknessMask: false,
-            activeLabel: 'None',
-          });
-        },
-      },
-      {
-        id: 'speed_shift',
-        label: 'Speed Shift',
-        durationMs: 5_000,
-        apply: () => {
-          this.setMutationEffects({
-            speedMultiplier: 1.8,
-            activeLabel: 'Speed Shift',
-          });
-        },
-        clear: () => {
-          this.setMutationEffects({
-            speedMultiplier: 1,
-            activeLabel: 'None',
-          });
-        },
-      },
-    ];
   }
 }

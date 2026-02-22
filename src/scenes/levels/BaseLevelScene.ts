@@ -4,6 +4,7 @@ import { MAX_HEALTH } from '../../game/constants';
 import { AudioSystem } from '../../systems/AudioSystem';
 import { applyScore, calculateLevelScore } from '../../systems/ScoreSystem';
 import { LevelResult, LevelSceneData, MutationEffects, RunState } from '../../types/game';
+import { clearActiveRun, saveActiveRun } from '../../storage/run';
 
 const MOVE_SPEED = 280;
 
@@ -53,6 +54,8 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
   protected levelActive = false;
 
+  protected isPaused = false;
+
   protected mutationEffects: MutationEffects = {
     gravityMultiplier: 1,
     reverseControls: false,
@@ -61,9 +64,13 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     activeLabel: 'None',
   };
 
+  protected basePlayerTint = 0xffffff;
+
   protected audio?: AudioSystem;
 
   private darknessOverlay?: Phaser.GameObjects.Rectangle;
+
+  private pauseGroup?: Phaser.GameObjects.Group;
 
   private countdownText?: Phaser.GameObjects.Text;
 
@@ -106,6 +113,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
   create(data: LevelSceneData): void {
     this.damageTaken = 0;
     this.levelActive = false;
+    this.isPaused = false;
     this.restartPromptVisible = false;
     this.restartHandled = false;
     this.restartPayload = undefined;
@@ -133,6 +141,16 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.physics.world.resume();
     this.physics.world.setBounds(0, 0, this.scale.width, this.scale.height);
 
+    const startColor = Phaser.Display.Color.HexStringToColor('#ffffff');
+    const endColor = Phaser.Display.Color.HexStringToColor('#401070');
+    const interpolated = Phaser.Display.Color.Interpolate.ColorWithColor(
+      startColor,
+      endColor,
+      5,
+      Math.min(5, this.levelIndex)
+    );
+    this.basePlayerTint = Phaser.Display.Color.GetColor(interpolated.r, interpolated.g, interpolated.b);
+
     this.buildBackground();
     this.buildPlayer();
     this.buildInputs();
@@ -155,14 +173,21 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     this.runCountdownStep(3);
     this.updateHud();
 
-    this.input.keyboard?.once('keydown-ESC', () => {
-      this.scene.start('MenuScene');
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.togglePause();
     });
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearRestartPrompt());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off('keydown-ESC');
+      this.clearRestartPrompt();
+    });
   }
 
   update(time: number, delta: number): void {
+    if (this.isPaused) {
+      return;
+    }
+
     if (this.runState.health <= 0) {
       this.restartCurrentLevel();
       return;
@@ -226,12 +251,12 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
     if (this.runState.accessibility.reducedFlash) {
       this.player.setTint(0xffa1a1);
-      this.time.delayedCall(90, () => this.player.clearTint());
+      this.time.delayedCall(90, () => this.player.setTint(this.basePlayerTint));
       return;
     }
 
     this.player.setTint(0xff7777);
-    this.time.delayedCall(120, () => this.player.clearTint());
+    this.time.delayedCall(120, () => this.player.setTint(this.basePlayerTint));
     this.cameras.main.flash(90, 255, 60, 60, false);
     if (!this.runState.accessibility.reducedShake) {
       this.cameras.main.shake(120, 0.005);
@@ -244,6 +269,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
   protected completeLevel(godmodeSurvivalMs = 0): void {
     this.levelActive = false;
+    clearActiveRun(); // Clear saved run state on completion
     const durationMs = Math.max(0, Math.floor(this.time.now - this.levelStartTime));
     this.runState.elapsedMs += durationMs;
 
@@ -301,6 +327,8 @@ export abstract class BaseLevelScene extends Phaser.Scene {
       deathsInLevel: this.deathsInLevel + 1,
       results: this.previousResults,
     };
+
+    saveActiveRun(this.restartPayload); // Keep saved state updated
 
     this.audio?.playSfx(COMMON_SFX.restart, 0.8);
     this.showRestartPrompt();
@@ -362,6 +390,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
       .setDisplaySize(34, 34)
       .setDepth(120);
     this.player.setCollideWorldBounds(true);
+    this.player.setTint(this.basePlayerTint);
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCircle(12, 4, 4);
@@ -438,7 +467,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
       .setAlpha(0.9);
 
     this.controlHintText = this.add
-      .text(this.scale.width / 2, this.scale.height - 24, 'Move: WASD / Arrows   Primary: SPACE   Alt Attack: J', {
+      .text(this.scale.width / 2, this.scale.height - 24, 'Move: WASD / Arrows   Primary: SPACE  ', {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#b8cee3',
@@ -480,6 +509,18 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     if (this.levelActive) {
       return;
     }
+
+    this.restartPayload = {
+      runState: {
+        ...this.runState,
+        health: MAX_HEALTH,
+      },
+      levelIndex: this.levelIndex,
+      deathsInLevel: this.deathsInLevel,
+      results: this.previousResults,
+    };
+
+    saveActiveRun(this.restartPayload);
 
     this.levelStartTime = this.time.now;
     this.levelActive = true;
@@ -537,16 +578,16 @@ export abstract class BaseLevelScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.restartMenuLabel = this.add
-      .text(this.restartMenuButton.x, this.restartMenuButton.y, 'Menu', {
+      .text(this.restartMenuButton.x, this.restartMenuButton.y, 'Submit Score', {
         fontFamily: 'monospace',
-        fontSize: '26px',
+        fontSize: '18px',
         color: '#ffffff',
       })
       .setOrigin(0.5)
       .setDepth(2003);
 
     this.restartHint = this.add
-      .text(this.scale.width / 2, this.scale.height / 2 + 104, 'Shortcut: R restart, M menu', {
+      .text(this.scale.width / 2, this.scale.height / 2 + 104, 'Shortcut: R restart, ENTER submit', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#c6d8ea',
@@ -566,13 +607,19 @@ export abstract class BaseLevelScene extends Phaser.Scene {
     };
 
     const toMenu = () => {
-      if (this.restartHandled) {
+      if (this.restartHandled || !this.restartPayload) {
         return;
       }
 
       this.restartHandled = true;
       this.clearRestartPrompt();
-      this.scene.start('MenuScene');
+      clearActiveRun(); // Clear saved run since we are submitting
+
+      this.scene.start('ResultScene', {
+        success: false,
+        runState: this.restartPayload.runState,
+        results: this.restartPayload.results,
+      });
     };
 
     this.restartButton.on('pointerover', () => this.restartButton?.setAlpha(1));
@@ -585,8 +632,7 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard;
     keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.R).once('down', restart);
-    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.M).once('down', toMenu);
-    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER).once('down', restart);
+    keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER).once('down', toMenu);
   }
 
   private clearRestartPrompt(): void {
@@ -618,5 +664,81 @@ export abstract class BaseLevelScene extends Phaser.Scene {
 
     this.restartHint?.destroy();
     this.restartHint = undefined;
+  }
+
+  private togglePause(): void {
+    if (this.runState.health <= 0 || !this.levelActive) {
+      return;
+    }
+
+    if (this.isPaused) {
+      this.isPaused = false;
+      this.physics.world.resume();
+      this.pauseGroup?.destroy(true);
+      this.pauseGroup = undefined;
+      return;
+    }
+
+    this.isPaused = true;
+    this.physics.world.pause();
+
+    this.pauseGroup = this.add.group();
+
+    const overlay = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.65)
+      .setDepth(2000);
+
+    const panel = this.add
+      .image(this.scale.width / 2, this.scale.height / 2, UI_ASSETS.modalPanel)
+      .setDisplaySize(600, 320)
+      .setDepth(2001)
+      .setAlpha(0.97);
+
+    const title = this.add
+      .text(this.scale.width / 2, this.scale.height / 2 - 80, 'PAUSED', {
+        fontFamily: 'monospace',
+        fontSize: '48px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(2002);
+
+    const resumeBtn = this.add
+      .image(this.scale.width / 2 - 120, this.scale.height / 2 + 20, UI_ASSETS.buttonPrimary)
+      .setDisplaySize(190, 60)
+      .setDepth(2002)
+      .setInteractive({ useHandCursor: true });
+
+    const resumeLbl = this.add
+      .text(resumeBtn.x, resumeBtn.y, 'Resume', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(2003);
+
+    const menuBtn = this.add
+      .image(this.scale.width / 2 + 120, this.scale.height / 2 + 20, UI_ASSETS.buttonSecondary)
+      .setDisplaySize(190, 60)
+      .setDepth(2002)
+      .setInteractive({ useHandCursor: true });
+
+    const menuLbl = this.add
+      .text(menuBtn.x, menuBtn.y, 'Menu', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(2003);
+
+    resumeBtn.on('pointerdown', () => this.togglePause());
+    menuBtn.on('pointerdown', () => {
+      if (this.restartPayload) saveActiveRun(this.restartPayload);
+      this.scene.start('MenuScene');
+    });
+
+    this.pauseGroup.addMultiple([overlay, panel, title, resumeBtn, resumeLbl, menuBtn, menuLbl]);
   }
 }

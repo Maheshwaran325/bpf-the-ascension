@@ -31,7 +31,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
   }
 
   protected getObjectiveLabel(): string {
-    return 'Survive 20s. Lava below. Collect coffee coolant.';
+    return 'Survive 20s. Keep temp under 100%. Collect coffee coolant.';
   }
 
   protected onLevelStart(): void {
@@ -88,7 +88,7 @@ export class Level1BurningMonkScene extends BaseLevelScene {
     }
 
     this.updateHud(
-      `Temp ${Math.round(this.temperature)}% | Survive ${(remainingMs / 1000).toFixed(1)}s | Bugs ${this.fireBugs.length} | Coffee ${this.coolantCups.length}`,
+      `Temp ${Math.floor(this.temperature)}% | Survive ${(remainingMs / 1000).toFixed(1)}s | Bugs ${this.fireBugs.length} | Coffee ${this.coolantCups.length}`,
     );
   }
 

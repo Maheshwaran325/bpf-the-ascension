@@ -20,6 +20,7 @@ export interface RunState {
   elapsedMs: number;
   accessibility: AccessibilitySettings;
   audio: AudioSettings;
+  playerName: string;
 }
 
 export interface LevelResult {
@@ -70,8 +71,17 @@ export interface FailedLevelPayload {
   results: LevelResult[];
 }
 
+export interface ResumeRunPayload {
+  type: 'resumeRun';
+  runState: RunState;
+  levelIndex: number;
+  deathsInLevel: number;
+  results: LevelResult[];
+}
+
 export interface NewRunPayload {
   type: 'newRun';
+  playerName: string;
   accessibility?: AccessibilitySettings;
   audio?: AudioSettings;
 }
@@ -79,7 +89,8 @@ export interface NewRunPayload {
 export type GauntletSceneData =
   | NewRunPayload
   | CompletedLevelPayload
-  | FailedLevelPayload;
+  | FailedLevelPayload
+  | ResumeRunPayload;
 
 export interface MutationEffects {
   gravityMultiplier: number;

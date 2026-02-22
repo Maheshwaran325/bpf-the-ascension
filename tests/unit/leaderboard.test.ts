@@ -3,7 +3,7 @@ import {
   addLeaderboardEntry,
   loadLeaderboard,
   sanitizeInitials,
-  saveLeaderboard,
+  saveLeaderboardLocal,
   sortLeaderboard,
 } from '../../src/storage/leaderboard';
 import { LeaderboardEntry } from '../../src/types/game';
@@ -60,25 +60,25 @@ describe('leaderboard storage', () => {
     expect(sorted[2].initials).toBe('A1');
   });
 
-  it('trims leaderboard to top 10 and supports serialization', () => {
+  it('trims leaderboard to top 10 and supports serialization', async () => {
     const storage = new MockStorage();
     const entries = Array.from({ length: 12 }, (_, i) => makeEntry(i + 1, 20000 - i * 10, 200_000 + i * 1000));
 
-    saveLeaderboard(entries, storage);
-    const loaded = loadLeaderboard(storage);
+    saveLeaderboardLocal(entries, storage);
+    const loaded = await loadLeaderboard(storage);
 
     expect(loaded).toHaveLength(10);
     expect(loaded[0].score).toBe(20_000);
     expect(loaded[9].score).toBe(19_910);
   });
 
-  it('adds entries incrementally', () => {
+  it('adds entries incrementally', async () => {
     const storage = new MockStorage();
 
-    addLeaderboardEntry(makeEntry(1, 1000, 500_000), storage);
-    addLeaderboardEntry(makeEntry(2, 1200, 450_000), storage);
+    await addLeaderboardEntry(makeEntry(1, 1000, 500_000), storage);
+    await addLeaderboardEntry(makeEntry(2, 1200, 450_000), storage);
 
-    const loaded = loadLeaderboard(storage);
+    const loaded = await loadLeaderboard(storage);
     expect(loaded).toHaveLength(2);
     expect(loaded[0].score).toBe(1200);
   });

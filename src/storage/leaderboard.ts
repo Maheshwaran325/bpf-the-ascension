@@ -1,5 +1,9 @@
 import { LeaderboardEntry } from '../types/game';
 
+// Replace YOUR_PANTRY_ID with a real ID from getpantry.cloud
+export const PANTRY_ID = '9d21647d-0f36-499a-b694-5fc66916f773';
+export const PANTRY_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/bpf_leaderboard`;
+
 export const LEADERBOARD_STORAGE_KEY = 'bpf_ascension_leaderboard_v1';
 
 export function sanitizeInitials(raw: string): string {
@@ -15,36 +19,64 @@ export function sortLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[]
   });
 }
 
-export function loadLeaderboard(storage: Storage = window.localStorage): LeaderboardEntry[] {
-  const raw = storage.getItem(LEADERBOARD_STORAGE_KEY);
-  if (!raw) {
-    return [];
-  }
+export async function loadLeaderboard(storage: Storage = window.localStorage): Promise<LeaderboardEntry[]> {
+  let entries: LeaderboardEntry[] = [];
 
   try {
-    const parsed = JSON.parse(raw) as LeaderboardEntry[];
-    if (!Array.isArray(parsed)) {
-      return [];
+    const res = await fetch(PANTRY_URL, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.leaderboard)) {
+        entries = data.leaderboard;
+      }
     }
-
-    return sortLeaderboard(
-      parsed.filter((entry) => entry && entry.version === 'v1' && typeof entry.score === 'number'),
-    ).slice(0, 10);
-  } catch {
-    return [];
+  } catch (err) {
+    console.warn('Could not fetch global leaderboard from Pantry. Falling back to local.', err);
   }
+
+  // Fallback to local storage if empty or failed
+  if (entries.length === 0) {
+    const raw = storage.getItem(LEADERBOARD_STORAGE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) entries = parsed;
+      } catch {
+        // Ignore JSON error
+      }
+    }
+  }
+
+  return sortLeaderboard(
+    entries.filter((entry) => entry && entry.version === 'v1' && typeof entry.score === 'number')
+  ).slice(0, 10);
 }
 
-export function saveLeaderboard(entries: LeaderboardEntry[], storage: Storage = window.localStorage): LeaderboardEntry[] {
+export function saveLeaderboardLocal(entries: LeaderboardEntry[], storage: Storage = window.localStorage): LeaderboardEntry[] {
   const sorted = sortLeaderboard(entries).slice(0, 10);
   storage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(sorted));
   return sorted;
 }
 
-export function addLeaderboardEntry(
+export async function addLeaderboardEntry(
   entry: LeaderboardEntry,
   storage: Storage = window.localStorage,
-): LeaderboardEntry[] {
-  const current = loadLeaderboard(storage);
-  return saveLeaderboard([...current, entry], storage);
+): Promise<LeaderboardEntry[]> {
+  // First get the most up-to-date board
+  const current = await loadLeaderboard(storage);
+  const updated = sortLeaderboard([...current, entry]).slice(0, 10);
+
+  // Save globally to Pantry
+  try {
+    await fetch(PANTRY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaderboard: updated }),
+    });
+  } catch (err) {
+    console.warn('Failed to upload score to Pantry.', err);
+  }
+
+  // Backup locally
+  return saveLeaderboardLocal(updated, storage);
 }
