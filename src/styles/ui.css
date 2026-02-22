@@ -35,3 +35,46 @@ canvas {
     0 24px 52px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(90, 140, 190, 0.2);
 }
+
+#mobile-blocker {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #05080d;
+  color: var(--fg);
+  z-index: 9999;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+}
+
+#mobile-blocker h2 {
+  font-family: 'VT323', monospace;
+  font-size: 48px;
+  color: #ffaa55;
+  margin: 0 0 16px 0;
+}
+
+#mobile-blocker p {
+  font-size: 18px;
+  line-height: 1.5;
+  color: #c7e2ff;
+  margin: 0;
+}
+
+/* Show blocker for narrow screens or touch devices */
+@media (max-width: 1024px),
+(hover: none) and (pointer: coarse) {
+  #app {
+    display: none !important;
+  }
+
+  #mobile-blocker {
+    display: flex;
+  }
+}
