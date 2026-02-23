@@ -37,7 +37,7 @@ export class GauntletScene extends Phaser.Scene {
 
   create(data: GauntletSceneData): void {
     this.cameras.main.setBackgroundColor('#090d15');
-    const startLevelIndex = 1;
+    const startLevelIndex = 0;
 
     if (data.type === 'newRun') {
       const accessibility = this.resolveAccessibility(data.accessibility);
