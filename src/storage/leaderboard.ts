@@ -1,7 +1,7 @@
 import { LeaderboardEntry } from '../types/game';
 
-// Replace YOUR_PANTRY_ID with a real ID from getpantry.cloud
-export const PANTRY_ID = '9d21647d-0f36-499a-b694-5fc66916f773';
+// Environment variable for Pantry ID
+export const PANTRY_ID = import.meta.env.VITE_PANTRY_ID;
 export const PANTRY_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/bpf_leaderboard`;
 
 export const LEADERBOARD_STORAGE_KEY = 'bpf_ascension_leaderboard_v1';
